@@ -1,0 +1,13 @@
+language: node_js
+script:
+- npm test
+notifications:
+  email: false
+deploy:
+  provider: npm
+  email: ryankurte@gmail.com
+  api_key:
+    secure: i0SJubHyCP0VQHuCxwBmio4xFhhJPfJNwLgyZDTJcTlqS1uIxQueB5ky3oFT8Kv7btqZHaLpITjYLZUJEJnE8PHGYSq535+HbQ5iion7VvuxGWroRL0xQLOibdffajrfcUwhjgbdyxtm0qiSWw+95RzIHN1VsdvyrXf4hsFbbxj+Hw+nbDNaRB9MpuSbao8eHo0FFfMcYAAtlmF5vQamjiBNGVHBrDX4hT/SlBhrbYklFk2fbk+glFvS9mGXvVvyZhkX6Zkh9KepvBcqt8uZ8sQKjPOHJQ2+tvpXYLcPN/IAETXLiCj9Kf5Zu0x3zvOuTiYge/OseWBxxR433g4bg9bn/l6X8VjkXzJHq01IoiUuByg/tdydGhrWBeWtk5Y1hdJz4XMUbx7yvF9lpL7Vh1U10hyBL4jgkzWcBQgkTsQ55U4q+S+fF7DVe3V9i1Y1uZr/MusF8vFo7ffF2eK4lI8amL51ZiPE+3J/ahbu9G8tFQ1e6eKuFXEfku46d6PWOVO3asW1NjET56dPLbMGGXnKEYAEpMuMBhP3u126o/SQzhKR0ONzQBShPx+kS9+/xH2bGyPPijXqUnWIeL1jCi952gxh+xrLoF/oZA+Y7bJDqeKeAdF5JZvRN4Yw86x2JluA33rfYV+e74K0Ai2cO0wyX9/O+pAs6kXtGLf7+fo=
+  on:
+    tags: true
+    repo: ryankurte/virtual-u2f
