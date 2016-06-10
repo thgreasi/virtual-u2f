@@ -220,9 +220,13 @@ var _currentRequest = {};
 
 function hextob64(data) {
     if (data.length % 2 != 0) {
-        data = "0" + data;
+        data = data + "0";
     }
     return new Buffer(data, 'hex').toString('base64');
+}
+
+function b64tohex(data) {
+    return new Buffer(data, 'base64').toString('hex');
 }
 
 module.exports = class U2FToken {
@@ -245,6 +249,33 @@ module.exports = class U2FToken {
         this.keys.push(key);
     }
 
+    GetKeyByHandle(keyHandle) {
+        return this.keys.find(function(key) {
+            return key.keyHandle == keyHandle;
+        }) || null;
+    }
+
+    /**
+     * Determines whether a provided key handle belongs to a key that may be used by the app with the provided app id.
+     * @param keyHandle
+     * @param appId
+     * @returns {boolean}
+     */
+    IsValidKeyHandleForAppId(keyHandle, appId) {
+        
+        var key = this.GetKeyByHandle(keyHandle);
+
+        if (key === null) {
+            return false;
+        }
+
+        if (key.appId === appId) {
+            return true;
+        } else {
+            return false;
+        }
+    };
+
     // Handle a registration request
     HandleRegisterRequest(request) {
 
@@ -253,7 +284,6 @@ module.exports = class U2FToken {
          */
         var keyPair = generateKeyPair();
         var clientData = getClientDataStringFromRequest(request);
-        console.log("Client Data: " + clientData);
         var clientDataHash = sha256Digest(clientData);
         var applicationIdHash = sha256Digest(request.appId);
         var keyHandle = generateKeyHandle();
@@ -262,7 +292,7 @@ module.exports = class U2FToken {
 
         var response = RESERVED_BYTE + keyPair.ecpubhex + keyHandleLength + keyHandle + ATTESTATION_CERTIFICATE + signature;
 
-        var sessionID = getSessionIdFromRequest(request);
+        //var sessionID = getSessionIdFromRequest(request);
 
         this.SaveKey(request.appId, keyHandle, keyPair);
 
@@ -278,42 +308,42 @@ module.exports = class U2FToken {
         };
     };
 
+    /**
+     * Handles a sign request
+     * @param request
+     * @param sender
+     * @param sendResponse
+     */
+    HandleSignRequest(request) {
+        var keyHandle = getKeyHandleFromRequest(request);
+        var key = this.GetKeyByHandle(b64tohex(keyHandle));
 
-}
+        if (key.appId != request.appId) {
+            var error = {
+                errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
+                errorMessage: "Not a valid device for this key handle/app id combination"
+            };
+            return error;
 
+        } 
 
-
-/**
- * Handles a sign request
- * @param request
- * @param sender
- * @param sendResponse
- */
-var handleSignRequest = function (request, sendResponse) {
-    
-    if (!isValidKeyHandleForAppId(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request))) {
-        sendResponse({
-            errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
-            errorMessage: "Not a valid device for this key handle/app id combination"
-        });
-    } else {
         var clientData = getClientDataStringFromRequest(request);
         var clientDataHash = sha256Digest(clientData);
         var applicationId = getApplicationIdFromRequest(request);
         var applicationIdHash = sha256Digest(applicationId);
-        var sessionID = getSessionIdFromRequest(request);
+        //var sessionID = getSessionIdFromRequest(request);
         var challenge = getChallengeFromRequest(request);
-        var counter = getKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).counter;
+        var counter = this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).counter;
         var counterHex = counterPadding(counter);
 
-        var signature = signHex(getKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
+        var signature = signHex(this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
         
         var sign = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
         
         if (counter >= 65535) {
-            resetCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
+            key.counter = 0;
         } else {
-            increaseCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
+            key.counter ++;
         }
 
         /*
@@ -321,22 +351,25 @@ var handleSignRequest = function (request, sendResponse) {
          */
         return {
             // websafe-base64(client data)
-            bd : clientData,
+            clientData : new Buffer(clientData).toString('base64'),
 
             // websafe-base64(raw response from U2F device)
-            sign : sign,
+            signatureData : sign,
 
             // challenge originally passed to handleSignRequest
             challenge : challenge,
 
             // session id originally passed to handleSignRequest
-            sessionId : sessionID,
+            //sessionId : sessionID,
 
             // application id originally passed to handleSignRequest
-            app_id : applicationId
+            appId : applicationId
         };
-    }
-};
+    };
+
+
+}
+
 
 /**
  * Padds an integer for counter byte use
@@ -347,26 +380,7 @@ var counterPadding = function (num) {
     return ("00000000" + num.toString(16)).substr(-8);
 }
 
-/**
- * Determines whether a provided key handle belongs to a key that may be used by the app with the provided app id.
- * @param keyHandle
- * @param appId
- * @returns {boolean}
- */
-var isValidKeyHandleForAppId = function (keyHandle, appId) {
-    
-    var key = getKeyByHandle(keyHandle);
 
-    if (key === null) {
-        return false;
-    }
-
-    if (key.appId === appId) {
-        return true;
-    } else {
-        return false;
-    }
-};
 
 /**
  *
@@ -646,7 +660,7 @@ var prepareChallengeSha256 = function (challenge, callback) {
 
 var generateKeyHandle = function () {
     
-    return "bogus_" + new Date().getTime();
+    return new Buffer("bogus_" + new Date().getTime()).toString('hex');
 };
 
 var addToKeyStore = function (key) {
@@ -717,7 +731,7 @@ var getClientDataStringFromRequest = function (request) {
             return JSON.stringify({challenge: request.registerRequests[0].challenge});
             break;
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
-            return JSON.stringify({challenge: request.signRequests[0].challenge});
+            return JSON.stringify({challenge: request.challenge});
             break;
         default:
             throw new Error("Invalid Request Type");
@@ -726,17 +740,17 @@ var getClientDataStringFromRequest = function (request) {
 };
 
 var getChallengeFromRequest = function (request) {
-    return getClientDataStringFromRequest(request).challenge;
+    return getClientDataStringFromRequest(request);
 };
 
 var getApplicationIdFromRequest = function (request) {
     
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
-            return request.registerRequests[0].app_id;
+            return request.registerRequests[0].appId;
             break;
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
-            return request.signRequests[0].app_id;
+            return request.appId;
             break;
         default:
             throw new Error("Invalid Request Type");
@@ -745,10 +759,9 @@ var getApplicationIdFromRequest = function (request) {
 };
 
 var getKeyHandleFromRequest = function (request) {
-    
     switch (request.type) {
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
-            return request.signRequests[0].keyHandle;
+            return request.registeredKeys[0].keyHandle;
             break;
         default:
             throw new Error("Invalid Request Type");

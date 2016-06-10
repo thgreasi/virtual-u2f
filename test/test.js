@@ -9,6 +9,8 @@ describe('Virtual u2f token', function() {
     var appId = "testApp.com";
 
     var token = null;
+    var keyHandle = null;
+    var publicKey = null;
 
     before(function() {
         token = new VirtualToken();
@@ -18,15 +20,28 @@ describe('Virtual u2f token', function() {
 
         var req = u2f.requestRegistration(appId);
 
-        console.log(req);
-
         var resp = token.HandleRegisterRequest(req);
 
-        console.log(new Buffer(resp.clientData, 'base64').toString('utf8'));
+        var challenge = req.registerRequests[0];
 
-        var result = u2f.checkRegistration(req, resp);
+        var result = u2f.checkRegistration(challenge, resp);
 
-        console.log(result);
+        keyHandle = result.keyHandle;
+        publicKey = result.publicKey;
+
+        assert(result.successful == true);
+
+    });
+
+    it('Handles signing requests', function() {
+
+        var req = u2f.requestSignature(appId, keyHandle);
+
+        var resp = token.HandleSignRequest(req);
+
+        assert(typeof resp.errorCode == 'undefined');
+
+        var result = u2f.checkSignature(req, resp, publicKey);
 
         assert(result.successful == true);
 
