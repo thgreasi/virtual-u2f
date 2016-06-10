@@ -9,6 +9,9 @@
   "scripts": {
     "test": "mocha"
   },
+  "bin": {
+    "vu2f": "./cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ryankurte/virtual-u2f.git"
@@ -33,6 +36,7 @@
     "u2f": "github:ryankurte/u2f"
   },
   "dependencies": {
+    "argparse": "^1.0.7",
     "jsrsasign": "^5.0.12"
   }
 }

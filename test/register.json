@@ -1,0 +1,12 @@
+{
+    "appId": "testApp.com",
+    "type": "u2f_register_request",
+    "registerRequests": [
+        {
+            "version": "U2F_V2",
+            "appId": "testApp.com",
+            "challenge": "9tLLsBwS_ovqZaOqbxAPV6V6xzgwIcFdAcqhCoM605A"
+        }
+    ],
+    "registeredKeys": []
+}

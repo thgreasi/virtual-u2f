@@ -1,0 +1,12 @@
+{
+    "version": "U2F_V2",
+    "appId": "testApp.com",
+    "challenge": "MYvX-7uq2tyd3XO2nl_eNiKbCeETbotZrMFQeRTTl5k",
+    "type": "u2f_sign_request",
+    "registeredKeys": [
+        {
+            "version": "U2F_V2",
+            "keyHandle": "Ym9ndXNfMTQ2NTU1NjYzNTQ0Nw"
+        }
+    ]
+}

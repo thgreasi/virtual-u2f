@@ -230,8 +230,8 @@ function b64tohex(data) {
 }
 
 module.exports = class U2FToken {
-    constructor() {
-        this.keys = [];
+    constructor(keys) {
+        this.keys = keys || [];
     }
 
     // Save a key to the device
@@ -253,6 +253,14 @@ module.exports = class U2FToken {
         return this.keys.find(function(key) {
             return key.keyHandle == keyHandle;
         }) || null;
+    }
+
+    ExportKeys() {
+        return this.keys;
+    }
+
+    ImportKeys(keys) {
+        this.keys = keys;
     }
 
     /**
@@ -283,12 +291,17 @@ module.exports = class U2FToken {
          * The new keypair for this RP
          */
         var keyPair = generateKeyPair();
+
         var clientData = getClientDataStringFromRequest(request);
         var clientDataHash = sha256Digest(clientData);
         var applicationIdHash = sha256Digest(request.appId);
+
         var keyHandle = generateKeyHandle();
         var keyHandleLength = getKeyHandleLengthString(keyHandle);
-        var signature = signHex(ATTESTATION_KEY.private, getRegistrationSignatureBaseString(applicationIdHash, clientDataHash, keyHandle, keyPair.ecpubhex));
+
+        var registrationBaseString = getRegistrationSignatureBaseString(applicationIdHash, clientDataHash, keyHandle, keyPair.ecpubhex);
+        
+        var signature = signHex(ATTESTATION_KEY.private, registrationBaseString);
 
         var response = RESERVED_BYTE + keyPair.ecpubhex + keyHandleLength + keyHandle + ATTESTATION_CERTIFICATE + signature;
 
@@ -331,16 +344,16 @@ module.exports = class U2FToken {
         var clientDataHash = sha256Digest(clientData);
         var applicationId = getApplicationIdFromRequest(request);
         var applicationIdHash = sha256Digest(applicationId);
+
         //var sessionID = getSessionIdFromRequest(request);
         var challenge = getChallengeFromRequest(request);
-        var counter = this.GetKeyByHandle(b64tohex(keyHandle)).counter;
-        var counterHex = counterPadding(counter);
+        var counterHex = counterPadding(key.counter);
 
-        var signature = signHex(this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
+        var signature = signHex(key.private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
         
-        var sign = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
+        var signatureData = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
         
-        if (counter >= 65535) {
+        if (key.counter >= 65535) {
             key.counter = 0;
         } else {
             key.counter ++;
@@ -354,7 +367,7 @@ module.exports = class U2FToken {
             clientData : new Buffer(clientData).toString('base64'),
 
             // websafe-base64(raw response from U2F device)
-            signatureData : sign,
+            signatureData : signatureData,
 
             // challenge originally passed to handleSignRequest
             challenge : challenge,

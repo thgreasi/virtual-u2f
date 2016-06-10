@@ -1,0 +1,10 @@
+[
+    {
+        "generated": "2016-06-10T11:03:55.480Z",
+        "appId": "testApp.com",
+        "keyHandle": "626f6775735f31343635353536363335343437",
+        "public": "049d81d857ae509335a3059c2b659805c092db90f5b061d8dc65141ecebe9a6bf81432099e8902d0ef27278e0fef39e1e7786278ed094087906aa8669f4427999c",
+        "private": "1ce800b52058316824ca87d27f03ef2d292e4eacebaf1b085ad91f1cb82a1933",
+        "counter": 0
+    }
+]
