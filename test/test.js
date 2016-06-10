@@ -16,34 +16,41 @@ describe('Virtual u2f token', function() {
         token = new VirtualToken();
     });
 
-    it('Handles registration requests', function() {
+    it('Handles registration requests', function(done) {
 
         var req = u2f.requestRegistration(appId);
 
-        var resp = token.HandleRegisterRequest(req);
+        var resp = token.HandleRegisterRequest(req)
+        .then(function(resp) {
 
-        var challenge = req.registerRequests[0];
+            var challenge = req.registerRequests[0];
 
-        var result = u2f.checkRegistration(challenge, resp);
+            var result = u2f.checkRegistration(challenge, resp);
 
-        keyHandle = result.keyHandle;
-        publicKey = result.publicKey;
+            keyHandle = result.keyHandle;
+            publicKey = result.publicKey;
 
-        assert(result.successful == true);
+            assert(result.successful == true);
 
+            done();
+        });
     });
 
-    it('Handles signing requests', function() {
+    it('Handles signing requests', function(done) {
 
         var req = u2f.requestSignature(appId, keyHandle);
 
-        var resp = token.HandleSignRequest(req);
+        var resp = token.HandleSignRequest(req)
+        .then(function(resp) {
 
-        assert(typeof resp.errorCode == 'undefined');
+            assert(typeof resp.errorCode == 'undefined');
 
-        var result = u2f.checkSignature(req, resp, publicKey);
+            var result = u2f.checkSignature(req, resp, publicKey);
 
-        assert(result.successful == true);
+            assert(result.successful == true);
+
+            done();
+        });
 
     });
 

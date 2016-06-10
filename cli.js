@@ -30,49 +30,67 @@ if(fs.existsSync(args.store)) {
 // Read input file
 if(fs.existsSync(args.input)) {
     var inputString = fs.readFileSync(args.input);
-    var dataIn = JSON.parse(inputString)
+    var req = JSON.parse(inputString)
 } else {
     console.log("Input file: " + args.input + " not found.");
+    process.exit(-1);
 }
 
 
+// Create the virtual token
 var token = new VU2F(keys);
 
+// Execute the desired command
+var next = null;
 switch(args.mode) {
     case 'reg':
-        Register();
+        next = Register(req);
         break;
     case 'sign':
-        Sign();
+        next = Sign(req);
         break;
     default:
         console.log("Unrecognised mode argument");
         break;
 }
 
-// Write context file
-var contextString = JSON.stringify(token.ExportKeys(), null, 4);
-fs.writeFileSync(args.store, contextString);
+// Finish up and write back to files
+next.then(function() {
+    // Write context file
+    var contextString = JSON.stringify(token.ExportKeys(), null, 4);
+    fs.writeFileSync(args.store, contextString);
+
+    // Write output file
+    var respString = JSON.stringify(resp, null, 4);
+    fs.writeFileSync(args.output, respString);
+});
 
 
-function Register() {
+// Register an application
+// This creates a key pair and handle to be associated with the application
+function Register(dataIn) {
     console.log("Registering key");
 
-    var resp = token.HandleRegisterRequest(dataIn);
-
-    var respString = JSON.stringify(resp, null, 4);
-
-    fs.writeFileSync(args.output, respString);
+    return token.HandleRegisterRequest(dataIn)
+    .then(function(resp) {
+        console.log("Registration complete. App: " + dataIn.appId + "Key Handle is: " + resp.keyHandle)
+    }, function(error) {
+        console.log("Registration error: " + error);
+    });
 }
 
-function Sign() {
-    console.log("Registering key");
+// Sign a challenge
+// This uses the registered key pair for an application to sign a challenge
+// as proof of identity.
+function Sign(dataIn) {
+    console.log("Signing");
 
-    var resp = token.HandleRegisterRequest(dataIn);
-
-    var respString = JSON.stringify(resp, null, 4);
-
-    fs.writeFileSync(args.output, respString);
+    return token.HandleSignRequest(dataIn)
+    .then(function(resp) {
+        console.log("Signature complete. App: " + dataIn.appId + " Key Handle is: " + resp.keyHandle)
+    }, function(error) {
+        console.log("Signature error:" + error);
+    });
 }
 
 

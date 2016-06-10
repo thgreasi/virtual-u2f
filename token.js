@@ -255,6 +255,12 @@ module.exports = class U2FToken {
         }) || null;
     }
 
+    GetKeyByAppId(appId) {
+        return this.keys.find(function(key) {
+            return key.appId == appId;
+        }) || null;
+    }
+
     ExportKeys() {
         return this.keys;
     }
@@ -287,9 +293,12 @@ module.exports = class U2FToken {
     // Handle a registration request
     HandleRegisterRequest(request) {
 
-        /*
-         * The new keypair for this RP
-         */
+        //Check if appId is unique
+        var existingKey = this.GetKeyByAppId(request.appId);
+        if(existingKey != null) {
+            return Promise.reject("Application key already exists");
+        }
+
         var keyPair = generateKeyPair();
 
         var clientData = getClientDataStringFromRequest(request);
@@ -312,13 +321,16 @@ module.exports = class U2FToken {
         /*
          * fido-u2f-javascript-api-v1.0-rd-20140209.pdf ll. 175-182
          */
-        return {
+        return Promise.resolve({
             // websafe-base64(raw registration response message)
             registrationData: hextob64(response),
 
             // websafe-base64(UTF8(stringified(client data)))
-            clientData: new Buffer(clientData).toString('base64')
-        };
+            clientData: new Buffer(clientData).toString('base64'),
+
+            // Unencoded key handle for convenience
+            keyHandle: keyHandle
+        });
     };
 
     /**
@@ -332,12 +344,10 @@ module.exports = class U2FToken {
         var key = this.GetKeyByHandle(b64tohex(keyHandle));
 
         if (key.appId != request.appId) {
-            var error = {
+            return Promise.reject({
                 errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
                 errorMessage: "Not a valid device for this key handle/app id combination"
-            };
-            return error;
-
+            });
         } 
 
         var clientData = getClientDataStringFromRequest(request);
@@ -362,7 +372,7 @@ module.exports = class U2FToken {
         /*
          * fido-u2f-javascript-api-v1.0-rd-20140209.pdf ll.254 - 265
          */
-        return {
+        return Promise.resolve({
             // websafe-base64(client data)
             clientData : new Buffer(clientData).toString('base64'),
 
@@ -376,8 +386,11 @@ module.exports = class U2FToken {
             //sessionId : sessionID,
 
             // application id originally passed to handleSignRequest
-            appId : applicationId
-        };
+            appId : applicationId,
+
+            // Unencoded key handle for convenience
+            keyHandle: keyHandle
+        });
     };
 
 
