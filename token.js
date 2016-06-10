@@ -333,10 +333,10 @@ module.exports = class U2FToken {
         var applicationIdHash = sha256Digest(applicationId);
         //var sessionID = getSessionIdFromRequest(request);
         var challenge = getChallengeFromRequest(request);
-        var counter = this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).counter;
+        var counter = this.GetKeyByHandle(b64tohex(keyHandle)).counter;
         var counterHex = counterPadding(counter);
 
-        var signature = signHex(this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
+        var signature = signHex(this.GetKeyByHandle(keyHandle).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
         
         var sign = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
         
