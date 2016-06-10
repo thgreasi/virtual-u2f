@@ -19,10 +19,14 @@ var VirtualToken = require('../token.js');
 ...
 
 // Handle registration request
-var resp = token.HandleRegisterRequest(req);
-
-// Finalize registration
-...
+token.HandleRegisterRequest(request)
+.then(function(response) {
+    // Finalise registration
+    ...
+}, function(error) {
+    // Handle error
+    ...
+});
 
 ```
 
@@ -34,10 +38,14 @@ var VirtualToken = require('../token.js');
 ...
 
 // Handle registration request
-var resp = token.HandleSignatureRequest(req);
-
-// Finalize Signing
-...
+token.HandleSignatureRequest(request)
+.then(function(response) {
+    // Finalise Signing
+    ...
+}, function(error) {
+    // Handle error
+    ...
+});
 
 ```
 
