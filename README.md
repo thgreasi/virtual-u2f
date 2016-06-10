@@ -39,7 +39,7 @@ var resp = token.HandleSignatureRequest(req);
 
 ```
 
-For a worked example running against (ryankurte/u2f)[https://github.com/ryankurte/u2f] (my fork of (ashtuchkin/u2f)[https://github.com/ashtuchkin/u2f]), check out [test.js](test/test.js).  
+For a worked example running against [ryankurte/u2f](https://github.com/ryankurte/u2f) (my fork of [ashtuchkin/u2f](https://github.com/ashtuchkin/u2f)), check out [test.js](test/test.js).  
 
 
 If you have any questions, comments, or suggestions, feel free to open an issue or a pull request.
