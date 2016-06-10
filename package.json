@@ -23,7 +23,7 @@
   "contributors": [
     "Moritz Platt"
   ],
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/ryankurte/virtual-u2f/issues"
   },
