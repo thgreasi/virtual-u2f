@@ -1,11 +1,12 @@
+'use strict';
+
+var KJUR = require('jsrsasign');
+
 /**
  * Internal Token Logic
  */
 
-/**
- * Namespace for the U2F api.
- */
-window.u2f = window.u2f || {};
+ var u2f = {};
 
 /**
  * Message types for messsages to/from the extension
@@ -216,69 +217,71 @@ var USER_PRESENCE_BYTE = '01';
  */
 var _currentRequest = {};
 
-/*
- * The event that is emitted should user presence be confirmed.
- */
-var userPresenceTest = new Event("userPresence");
 
-window.addEventListener("userPresence", function(){
-    handleCurrentRequest();
-}, false);
+function hextob64(data) {
+    if (data.length % 2 != 0) {
+        data = "0" + data;
+    }
+    return new Buffer(data, 'hex').toString('base64');
+}
 
-chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
-    "use strict";
-    request["started"] = new Date().getTime();
-    storeRequest(request, sender, sendResponse);
+module.exports = class U2FToken {
+    constructor() {
+        this.keys = [];
+    }
 
-    /*
-     * Always return true!
-     * https://code.google.com/p/chromium/issues/detail?id=343007
-     */
-    return true;
-});
+    // Save a key to the device
+    SaveKey(applicationId, keyHandle, keyPair) {
+    
+        var key = {
+            "generated" : (new Date()),
+            "appId" : applicationId,
+            "keyHandle" : keyHandle,
+            "public" : keyPair.ecpubhex,
+            "private" : keyPair.ecprvhex,
+            "counter" : 0
+        };
 
-/**
- * Handles a register request
- * @param request
- * @param sender
- * @param sendResponse
- */
-var handleRegisterRequest = function (request, sender, sendResponse) {
-    "use strict";
+        this.keys.push(key);
+    }
 
-    /*
-     * The new keypair for this RP
-     */
-    var keyPair = generateKeyPair();
-    var clientData = getClientDataStringFromRequest(request);
-    var clientDataHash = sha256Digest(clientData);
-    var applicationId = getApplicationIdFromRequest(request);
-    var applicationIdHash = sha256Digest(applicationId);
-    var keyHandle = generateKeyHandle();
-    var keyHandleLength = getKeyHandleLengthString(keyHandle);
-    var signature = signHex(ATTESTATION_KEY.private, getRegistrationSignatureBaseString(applicationIdHash, clientDataHash, keyHandle, keyPair.ecpubhex));
+    // Handle a registration request
+    HandleRegisterRequest(request) {
 
-    var response = RESERVED_BYTE + keyPair.ecpubhex + keyHandleLength + keyHandle + ATTESTATION_CERTIFICATE + signature;
+        /*
+         * The new keypair for this RP
+         */
+        var keyPair = generateKeyPair();
+        var clientData = getClientDataStringFromRequest(request);
+        console.log("Client Data: " + clientData);
+        var clientDataHash = sha256Digest(clientData);
+        var applicationIdHash = sha256Digest(request.appId);
+        var keyHandle = generateKeyHandle();
+        var keyHandleLength = getKeyHandleLengthString(keyHandle);
+        var signature = signHex(ATTESTATION_KEY.private, getRegistrationSignatureBaseString(applicationIdHash, clientDataHash, keyHandle, keyPair.ecpubhex));
 
-    var sessionID = getSessionIdFromRequest(request);
+        var response = RESERVED_BYTE + keyPair.ecpubhex + keyHandleLength + keyHandle + ATTESTATION_CERTIFICATE + signature;
 
-    safeToKeyStore(applicationId, keyHandle, keyPair);
+        var sessionID = getSessionIdFromRequest(request);
 
-    /*
-     * fido-u2f-javascript-api-v1.0-rd-20140209.pdf ll. 175-182
-     */
-    sendResponse({
-        // websafe-base64(raw registration response message)
-        registrationData: hextob64(response),
+        this.SaveKey(request.appId, keyHandle, keyPair);
 
-        // websafe-base64(UTF8(stringified(client data)))
-        bd: clientData,
+        /*
+         * fido-u2f-javascript-api-v1.0-rd-20140209.pdf ll. 175-182
+         */
+        return {
+            // websafe-base64(raw registration response message)
+            registrationData: hextob64(response),
 
-        // session id originally passed to handleRegistrationRequest
-        sessionId :sessionID
-    });
-    return;
-};
+            // websafe-base64(UTF8(stringified(client data)))
+            clientData: new Buffer(clientData).toString('base64')
+        };
+    };
+
+
+}
+
+
 
 /**
  * Handles a sign request
@@ -286,8 +289,8 @@ var handleRegisterRequest = function (request, sender, sendResponse) {
  * @param sender
  * @param sendResponse
  */
-var handleSignRequest = function (request, sender, sendResponse) {
-    "use strict";
+var handleSignRequest = function (request, sendResponse) {
+    
     if (!isValidKeyHandleForAppId(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request))) {
         sendResponse({
             errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
@@ -307,10 +310,16 @@ var handleSignRequest = function (request, sender, sendResponse) {
         
         var sign = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
         
+        if (counter >= 65535) {
+            resetCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
+        } else {
+            increaseCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
+        }
+
         /*
          * fido-u2f-javascript-api-v1.0-rd-20140209.pdf ll.254 - 265
          */
-        sendResponse({
+        return {
             // websafe-base64(client data)
             bd : clientData,
 
@@ -325,15 +334,7 @@ var handleSignRequest = function (request, sender, sendResponse) {
 
             // application id originally passed to handleSignRequest
             app_id : applicationId
-        });
-
-        if (counter >= 65535) {
-            resetCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
-        } else {
-            increaseCounter(b64tohex(getKeyHandleFromRequest(request)), getApplicationIdFromRequest(request));
-        }
-
-
+        };
     }
 };
 
@@ -353,7 +354,7 @@ var counterPadding = function (num) {
  * @returns {boolean}
  */
 var isValidKeyHandleForAppId = function (keyHandle, appId) {
-    "use strict";
+    
     var key = getKeyByHandle(keyHandle);
 
     if (key === null) {
@@ -373,7 +374,7 @@ var isValidKeyHandleForAppId = function (keyHandle, appId) {
  * @param appId
  */
 var resetCounter = function (keyHandle, appId) {
-    "use strict";
+    
     var keyStore = getKeyStore();
 
     for (var k in keyStore) {
@@ -392,7 +393,7 @@ var resetCounter = function (keyHandle, appId) {
  * @param appId
  */
 var increaseCounter = function (keyHandle, appId) {
-    "use strict";
+    
     var keyStore = getKeyStore();
 
     for (var k in keyStore) {
@@ -411,7 +412,7 @@ var increaseCounter = function (keyHandle, appId) {
  * @returns {Object|null}
  */
 var getKeyByHandle = function (keyHandle) {
-    "use strict";
+    
     var keyStore = getKeyStore();
     for (var k in keyStore) {
         var key = keyStore[k];
@@ -431,7 +432,7 @@ var getKeyByHandle = function (keyHandle) {
  * @returns {{}}
  */
 var storeRequest = function (request, sender, sendResponse) {
-    "use strict";
+    
     /**
      * @type {request: *, sender: *, sendResponse: *}}
      * @private
@@ -445,7 +446,7 @@ var storeRequest = function (request, sender, sendResponse) {
 };
 
 var handleCurrentRequest = function () {
-    "use strict";
+    
     /*
      * Check if the current request object is properly set
      */
@@ -477,7 +478,7 @@ var handleCurrentRequest = function () {
  * @returns {Array} associative array of hexadecimal string of private and public key
  */
 var generateKeyPair = function () {
-    "use strict";
+    
     /**
      *
      * @type {KJUR.crypto.ECDSA}
@@ -495,7 +496,7 @@ var generateKeyPair = function () {
  * @returns {String} the signature bytes as a hexadecimal string
  */
 var signHex = function (privateKey, message) {
-    "use strict";
+    
     /**
      * The signature object to sign a message with a given private key.
      * @type {KJUR.crypto.Signature}
@@ -525,7 +526,7 @@ var signHex = function (privateKey, message) {
  * @returns {string} The signature base string
  */
 var getRegistrationSignatureBaseString = function (applicationParameter, challengeParameter, keyHandle, userPublicKey) {
-    "use strict";
+    
     return FUTURE_USE_BYTE + applicationParameter + challengeParameter + keyHandle + userPublicKey;
 };
 
@@ -539,7 +540,7 @@ var getRegistrationSignatureBaseString = function (applicationParameter, challen
  * @returns {string} The signature base string
  */
 var getSignSignatureBaseString = function (applicationParameter, counter, challenge) {
-    "use strict";
+    
     return applicationParameter + USER_PRESENCE_BYTE + counter + challenge;
 };
 
@@ -547,13 +548,13 @@ var getSignSignatureBaseString = function (applicationParameter, counter, challe
  * Dispatches the user presence event
  */
 var handleButtonPress = function () {
-    "use strict";
+    
     window.dispatchEvent(userPresenceTest);
     return;
 };
 
 var handleSignIn = function () {
-    "use strict";
+    
     currentRequest.sendResponse({
         "success": "sign"
     });
@@ -566,7 +567,7 @@ var handleSignIn = function () {
  * @returns {string}
  */
 var decimalNumberToHexByte = function (dec) {
-    "use strict";
+    
     if (dec > 255) {
         throw new Error("Number exceeds a byte.");
     }
@@ -579,7 +580,7 @@ var decimalNumberToHexByte = function (dec) {
  * @returns {String} Hexadecimal digest
  */
 var sha256Digest = function (s) {
-    "use strict";
+    
     var sha = new KJUR.crypto.MessageDigest({
         alg: 'sha256',
         prov: 'cryptojs'
@@ -589,12 +590,12 @@ var sha256Digest = function (s) {
 };
 
 var arrayBufferToB64 = function (arrayBuffer) {
-    "use strict";
+    
     return btoa(String.fromCharCode.apply(null, new Uint8Array(arrayBuffer)));
 };
 
 var Uint8ToHex = function (uint) {
-    "use strict";
+    
     var s = '';
     for (var i = 0; i < uint.length; i++) {
         s += uint[i].toString(16);
@@ -603,7 +604,7 @@ var Uint8ToHex = function (uint) {
 };
 
 var stringToUint = function (s) {
-    "use strict";
+    
     var uint = new Uint8Array(s.length);
 
     for (var i = 0, j = s.length; i < j; ++i) {
@@ -614,7 +615,7 @@ var stringToUint = function (s) {
 };
 
 var prepareSignableData = function (appId, challenge, callback) {
-    "use strict";
+    
     window.crypto.subtle.digest({
         name: "SHA-256"
     }, stringToUint(appId)).then(function (appIdDigest) {
@@ -632,7 +633,7 @@ var prepareSignableData = function (appId, challenge, callback) {
 };
 
 var prepareChallengeSha256 = function (challenge, callback) {
-    "use strict";
+    
     window.crypto.subtle.digest({
         name: "SHA-256"
     }, stringToUint(challenge)).then(function (fullChallengeDigest) {
@@ -644,13 +645,12 @@ var prepareChallengeSha256 = function (challenge, callback) {
 };
 
 var generateKeyHandle = function () {
-    "use strict";
-    //return stohex("dummy_key_handle");
-    return stohex("bogus_" + new Date().getTime());
+    
+    return "bogus_" + new Date().getTime();
 };
 
 var addToKeyStore = function (key) {
-    "use strict";
+    
     var keyStore = JSON.parse(localStorage.getItem(KEY_STORE_NAME));
 
     if (keyStore === null) {
@@ -664,39 +664,39 @@ var addToKeyStore = function (key) {
 };
 
 var replaceKeyStore = function (keyStore) {
-    "use strict";
+    
     localStorage[KEY_STORE_NAME] = JSON.stringify(keyStore);
     return;
 };
 
 var emptykeyStore = function () {
-    "use strict";
+    
     localStorage[KEY_STORE_NAME] = "{}";
     return;
 };
 
 var getKeyStore = function () {
-    "use strict";
+    
     return JSON.parse(localStorage.getItem(KEY_STORE_NAME));
 };
 
 var getPrivateAttestationKey = function () {
-    "use strict";
+    
     return ATTESTATION_KEY.private;
 };
 
 var getPublicAttestationKey = function () {
-    "use strict";
+    
     return ATTESTATION_KEY.public;
 };
 
 var getAttestationCertificate = function () {
-    "use strict";
+    
     return ATTESTATION_CERTIFICATE;
 };
 
 var getSessionIdFromRequest = function (request) {
-    "use strict";
+    
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
             return request.registerRequests[0].sessionId;
@@ -711,13 +711,13 @@ var getSessionIdFromRequest = function (request) {
 };
 
 var getClientDataStringFromRequest = function (request) {
-    "use strict";
+    
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
-            return JSON.stringify(request.registerRequests[0].challenge);
+            return JSON.stringify({challenge: request.registerRequests[0].challenge});
             break;
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
-            return JSON.stringify(request.signRequests[0].challenge);
+            return JSON.stringify({challenge: request.signRequests[0].challenge});
             break;
         default:
             throw new Error("Invalid Request Type");
@@ -730,7 +730,7 @@ var getChallengeFromRequest = function (request) {
 };
 
 var getApplicationIdFromRequest = function (request) {
-    "use strict";
+    
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
             return request.registerRequests[0].app_id;
@@ -745,7 +745,7 @@ var getApplicationIdFromRequest = function (request) {
 };
 
 var getKeyHandleFromRequest = function (request) {
-    "use strict";
+    
     switch (request.type) {
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
             return request.signRequests[0].keyHandle;
@@ -757,19 +757,7 @@ var getKeyHandleFromRequest = function (request) {
 };
 
 var getKeyHandleLengthString = function (keyHandle) {
-    "use strict";
+    
     return decimalNumberToHexByte(keyHandle.length / 2);
 };
 
-var safeToKeyStore = function(applicationId, keyHandle, keyPair) {
-    "use strict";
-    addToKeyStore({
-        "generated" : (new Date()),
-        "appId" : applicationId,
-        "keyHandle" : keyHandle,
-        "public" : keyPair.ecpubhex,
-        "private" : keyPair.ecprvhex,
-        "counter" : 0
-    });
-    return;
-};

@@ -1,0 +1,38 @@
+{
+  "name": "virtual-u2f",
+  "version": "0.0.1",
+  "description": "Virtual U2F token for testing use",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryankurte/virtual-u2f.git"
+  },
+  "keywords": [
+    "u2f",
+    "fido",
+    "virtual",
+    "testing"
+  ],
+  "author": "Ryan Kurte",
+  "contributors": [
+    "Moritz Platt"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ryankurte/virtual-u2f/issues"
+  },
+  "homepage": "https://github.com/ryankurte/virtual-u2f#readme",
+  "devDependencies": {
+    "mocha": "^2.5.3",
+    "u2f": "github:ryankurte/u2f"
+  },
+  "dependencies": {
+    "jsrsasign": "^5.0.12"
+  }
+}
