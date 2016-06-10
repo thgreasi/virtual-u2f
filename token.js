@@ -336,7 +336,7 @@ module.exports = class U2FToken {
         var counter = this.GetKeyByHandle(b64tohex(keyHandle)).counter;
         var counterHex = counterPadding(counter);
 
-        var signature = signHex(this.GetKeyByHandle(keyHandle).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
+        var signature = signHex(this.GetKeyByHandle(b64tohex(getKeyHandleFromRequest(request))).private, getSignSignatureBaseString(applicationIdHash, counterHex, clientDataHash));
         
         var sign = hextob64(USER_PRESENCE_BYTE + counterHex + signature);
         
