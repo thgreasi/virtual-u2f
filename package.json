@@ -1,6 +1,6 @@
 {
   "name": "virtual-u2f",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "Virtual U2F token for testing use",
   "main": "index.js",
   "directories": {
