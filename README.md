@@ -1,12 +1,14 @@
 # Virtual U2F Token
 
-A virtual U2F token for testing U2F enabled applications.  
+A virtual U2F token for automated testing of U2F enabled applications.  
 
 Based on [https://github.com/mplatt/virtual-u2f](https://github.com/mplatt/virtual-u2f).  
 
 Updated to comply with the [U2F Javascript Spec](https://fidoalliance.org/specs/fido-u2f-v1.0-nfc-bt-amendment-20150514/fido-u2f-javascript-api.html#dictionary-u2frequest-members).  
 
 [![Build Status](https://travis-ci.org/ryankurte/virtual-u2f.svg)](https://travis-ci.org/ryankurte/virtual-u2f)  
+
+[![Dependencies](https://david-dm.org/ryankurte/virtual-u2f.svg)](https://david-dm.org/ryankurte/virtual-u2f)  
 
 ## Usage
 
@@ -50,6 +52,9 @@ token.HandleSignatureRequest(request)
 ```
 
 For a worked example running against [ryankurte/u2f](https://github.com/ryankurte/u2f) (my fork of [ashtuchkin/u2f](https://github.com/ashtuchkin/u2f)), check out [test.js](test/test.js).  
+
+
+There is also a simple command line application that accepts registration and signing challenges and outputs responses (both in JSON), in case you need to test non-javascript based applications.
 
 ------
 
