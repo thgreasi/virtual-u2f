@@ -13,7 +13,7 @@ Check it out on [npm](https://www.npmjs.com/package/virtual-u2f)
 
 ### Registration
 ```
-var VirtualToken = require('../token.js');
+var VirtualToken = require('virtual-u2f');
 
 // Generate Registration request
 ...
@@ -32,7 +32,7 @@ token.HandleRegisterRequest(request)
 
 ### Signing / Authentication
 ```
-var VirtualToken = require('../token.js');
+var VirtualToken = require('virtual-u2f');
 
 // Generate Signing request
 ...
