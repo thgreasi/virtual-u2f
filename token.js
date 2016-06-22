@@ -1,6 +1,7 @@
 'use strict';
 
 var KJUR = require('jsrsasign');
+var crypto = require('crypto');
 
 /**
  * Internal Token Logic
@@ -232,6 +233,8 @@ function b64tohex(data) {
 module.exports = class U2FToken {
     constructor(keys) {
         this.keys = keys || [];
+
+        return this;
     }
 
     // Save a key to the device
@@ -333,6 +336,18 @@ module.exports = class U2FToken {
         });
     };
 
+    register(appId, registerRequests, registeredKeys, registerCallback, timeout) {
+        HandleRegisterRequest({
+            appId: appId, 
+            registerRequests: registerRequests,
+            registeredKeys: registeredKeys
+        }).then(function(res) {
+            registerCallback(res)
+        }, function(err) {
+            registerCallback({errorCode: err})
+        });
+    };
+
     /**
      * Handles a sign request
      * @param request
@@ -340,13 +355,24 @@ module.exports = class U2FToken {
      * @param sendResponse
      */
     HandleSignRequest(request) {
-        var keyHandle = getKeyHandleFromRequest(request);
-        var key = this.GetKeyByHandle(b64tohex(keyHandle));
+        
+        var usedKey = request.registeredKeys.find(function(item) {
+            return this.IsValidKeyHandleForAppId(b64tohex(item.keyHandle), request.appId);
+        }.bind(this)) || null;
+
+        if(usedKey == null) {
+            return Promise.reject({
+                errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
+                errorMessage: "Not a valid device for this key handle/app id combination"
+            });
+        }
+
+        var key = this.GetKeyByHandle(b64tohex(usedKey.keyHandle));
 
         if (key.appId != request.appId) {
             return Promise.reject({
                 errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
-                errorMessage: "Not a valid device for this key handle/app id combination"
+                errorMessage: "keyHandle and appId mismatch"
             });
         } 
 
@@ -389,7 +415,7 @@ module.exports = class U2FToken {
             appId : applicationId,
 
             // Unencoded key handle for convenience
-            keyHandle: keyHandle
+            keyHandle: hextob64(key.keyHandle)
         });
     };
 
@@ -578,8 +604,7 @@ var prepareChallengeSha256 = function (challenge, callback) {
 };
 
 var generateKeyHandle = function () {
-    
-    return new Buffer("bogus_" + new Date().getTime()).toString('hex');
+    return crypto.randomBytes(16).toString('hex');
 };
 
 var getPrivateAttestationKey = function () {
@@ -607,7 +632,7 @@ var getSessionIdFromRequest = function (request) {
             return request.signRequests[0].sessionId;
             break;
         default:
-            throw new Error("Invalid Request Type");
+            throw new Error("Invalid SessionID");
             break;
     }
 };
