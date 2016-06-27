@@ -220,10 +220,14 @@ var _currentRequest = {};
 
 
 function hextob64(data) {
+    // Pad out as required
     if (data.length % 2 != 0) {
         data = data + "0";
     }
-    return new Buffer(data, 'hex').toString('base64');
+    // Create standard b64 encoding
+    var b64 =  new Buffer(data, 'hex').toString('base64');
+    // Format to web safe b64
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 function b64tohex(data) {
