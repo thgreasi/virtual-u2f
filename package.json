@@ -32,8 +32,7 @@
   },
   "homepage": "https://github.com/ryankurte/virtual-u2f#readme",
   "devDependencies": {
-    "mocha": "^2.5.3",
-    "u2f": "github:ryankurte/u2f"
+    "mocha": "^2.5.3"
   },
   "dependencies": {
     "argparse": "^1.0.7",
