@@ -360,18 +360,20 @@ module.exports = class U2FToken {
      */
     HandleSignRequest(request) {
         
-        var usedKey = request.registeredKeys.find(function(item) {
-            return this.IsValidKeyHandleForAppId(b64tohex(item.keyHandle), request.appId);
-        }.bind(this)) || null;
+        // var usedKey = request.registeredKeys.find(function(item) {
+        //     return this.IsValidKeyHandleForAppId(b64tohex(item.keyHandle), request.appId);
+        // }.bind(this)) || null;
+        var isValidKeyHandleForAppId = this.IsValidKeyHandleForAppId(b64tohex(request.keyHandle), request.appId);
 
-        if(usedKey == null) {
+        // if (usedKey == null) {
+        if (!isValidKeyHandleForAppId) {
             return Promise.reject({
                 errorCode: u2f.ErrorCodes.DEVICE_INELIGIBLE,
                 errorMessage: "Not a valid device for this key handle/app id combination"
             });
         }
 
-        var key = this.GetKeyByHandle(b64tohex(usedKey.keyHandle));
+        var key = this.GetKeyByHandle(b64tohex(request.keyHandle));
 
         if (key.appId != request.appId) {
             return Promise.reject({
@@ -642,18 +644,18 @@ var getSessionIdFromRequest = function (request) {
 };
 
 var getClientDataStringFromRequest = function (request) {
-    
+    if (request.version === "U2F_V2") {
+        return JSON.stringify({challenge: request.challenge});
+    }
+
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
             return JSON.stringify({challenge: request.registerRequests[0].challenge});
-            break;
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
             return JSON.stringify({challenge: request.challenge});
-            break;
-        default:
-            throw new Error("Invalid Request Type");
-        break;
     }
+
+    throw new Error("Invalid Request Type");
 };
 
 var getChallengeFromRequest = function (request) {
@@ -661,18 +663,18 @@ var getChallengeFromRequest = function (request) {
 };
 
 var getApplicationIdFromRequest = function (request) {
-    
+    if (request.version === "U2F_V2") {
+        return request.appId;
+    }
+
     switch (request.type) {
         case u2f.MessageTypes.U2F_REGISTER_REQUEST:
             return request.registerRequests[0].appId;
-            break;
         case u2f.MessageTypes.U2F_SIGN_REQUEST:
             return request.appId;
-            break;
-        default:
-            throw new Error("Invalid Request Type");
-        break;
     }
+
+    throw new Error("Invalid Request Type");
 };
 
 var getKeyHandleFromRequest = function (request) {
